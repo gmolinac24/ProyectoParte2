@@ -1,0 +1,118 @@
+---
+title: "SITUACIÓN DE LOS SERVICIOS HOSPITALARIOS EN LA CONSULTA INTERNA EN LA CIUDAD DE GUATEMALA"
+output: html_notebook
+---
+### Carga de archivo tipo SPSS
+
+Proceso para agregar a R-Studio el archivo descargado de https://www.ine.gob.gt/estadisticas-hospitalarias/ del Instituto Nacional de Estadística, fecha: 2022.
+
+### Instrucciones:
+Para cargar un archivo tipo .spss (SPSS) en R-Studio, debe seguir estos pasos:
+
+**Paso 1:** Instalar el paquete necesario
+Instalar el paquete "haven", que permite importar archivos SPSS para realizarlo abra R-Studio.
+**Paso 2:** Importar el archivo SPSS, asegúrese de colocar el archivo en la misma carpeta en donde guarda el cuaderno de trabajo.
+```{r}
+library(haven)
+a_2018 <- read_sav("2018.sav")
+a_2019 <- read_sav("2019.sav")
+a_2020 <- read_sav("2020.sav")
+a_2021 <- read_sav("2021.sav")
+a_2022 <- read_sav("2022.sav")
+```
+**Paso 3:** Verificar que la importación de los datos se haya realizado de forma correcta, utilizar la función head() para observar las primeras filas del conjunto de datos.
+
+```{r}
+print(a_2018)
+head(a_2019)
+head(a_2020)
+head(a_2021)
+head(a_2022)
+```
+Unir los datos de los 5 años propuestos.
+```{r}
+# Unir los data frames usando rbind
+data_total <- rbind(a_2018, a_2019, a_2020, a_2021, a_2022)
+
+# Ver el resultado
+print(data_total)
+
+```
+```{r}
+View(data_total)
+```
+**Librerías necesarias**
+La librería rpart (Recursive Partitioning and Regression Trees) es una herramienta utilizada en R para crear árboles de decisión, que son modelos de clasificación y regresión.
+
+La función rpart.plot en R Studio se utiliza para visualizar modelos de árboles de decisión creados con la librería rpart. Esta función proporciona una interfaz simplificada para el método prp, permitiendo generar gráficos que son automáticamente adaptados al tipo de respuesta del modelo, ya sea clasificación o regresión.
+
+A continuación se ejecutan las librerías necesarias para inicar los árboles de decisión.
+
+
+```{r}
+#Librerías necesarias
+#install.packages("rpart")
+#install.packages("rpart.plot")
+
+library(rpart)
+library(rpart.plot)
+library(dplyr)
+library(tidyverse)
+library(mltools)
+library(data.table)
+library(ggplot2)
+```
+Categorizando variables.
+
+```{r}
+#Convirtiendo en factor el departamento, agrupa por categorías
+data_total$CAUFIN <- as.factor(data_total$CAUFIN)
+```
+
+Realizando los áboles de decisión para la data de medicina interna.
+Árbol No. 1, Prediciendo el pueblo de pertenencia según características de los días de hospitalización, edad y causa de enfermedad.
+
+```{r}
+enf_pert <- rpart(PPERTENENCIA ~
+                 DIASESTANCIA+
+                 CAUFIN+
+                 EDAD,
+               data = data_total, method = "class")
+
+
+rpart.plot(enf_pert, type=2, extra=0, under = TRUE, fallen.leaves = TRUE, box.palette = "BuGn", 
+           main ="Pertenencia según enfermedades", cex = 0.45)
+
+pertenencia <- data.frame(
+  DIASESTANCIA=c(3),
+  CAUFIN(A06),
+  EDAD=c(25))
+
+result_pert <- predict(enf_pert,pertenencia, type="class")
+result_pert
+```
+
+Árbol No. 2
+Prediciendo motivo de enfermedad según carácterísticas de días de hospitalización, sexo, departamento de residencia,
+
+```{r}
+motivo_enfermedad <- rpart(CAUFIN ~
+                SEXO+
+                DEPTORESIDEN+
+                DIASESTANCIA,
+               data = data_total, method = "class")
+
+
+
+rpart.plot(motivo_enfermedad, type=2, extra=0, under = TRUE, fallen.leaves = TRUE, box.palette = "BuGn", 
+           main ="Motivo de enfermedad según lugar de residnencia", cex = 0.50)
+
+motivo <- data.frame(
+  SEXO=c(1),
+  DEPTORESIDEN=c(2),
+  DIASESTANCIA =c(3))
+
+result_motivo <- predict(newdata,pertenencia, type="class")
+result_motivo
+```
+
