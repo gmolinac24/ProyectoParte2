@@ -1,0 +1,222 @@
+```{r}
+#Importando las librerias
+library(haven)
+library(rpart)
+library(rpart.plot)
+library(dplyr)
+library(tidyverse)
+library(mltools)
+library(data.table)
+library(ggplot2)
+library(forcats)
+
+```
+
+
+```{r}
+#Importando los archivos .sav
+
+a_2018 <- read_sav("2018.sav")
+a_2019 <- read_sav("2019.sav")
+a_2020 <- read_sav("2020.sav")
+a_2021 <- read_sav("2021.sav")
+a_2022 <- read_sav("2022.sav")
+
+# Unir los data frames usando rbind
+data_total <- rbind(a_2018, a_2019, a_2020, a_2021, a_2022)
+
+# Ver el resultado
+print(data_total)
+```
+```{r}
+data_total$CAUFIN <- as.factor(data_total$CAUFIN)
+data_total$SEXO  <- as.factor(data_total$SEXO)
+data_total$TRATARECIB   <- as.factor(data_total$TRATARECIB)
+# Ver el tipo de la columna 'CAUFIN'
+str(data_total$CAUFIN)
+
+```
+convirtiendo a factores
+
+```{r}
+data_total <- data_total %>% 
+  mutate(across(where(~ !is.logical(.) & !is.factor(.)), as.factor))
+
+
+```
+
+
+#Arbol No. 1 
+
+```{r}
+# Primero, instalar y cargar librerías necesarias
+if (!require(rpart)) install.packages("rpart")
+if (!require(rpart.plot)) install.packages("rpart.plot")
+library(rpart)
+library(rpart.plot)
+
+# Pasos de diagnóstico previos
+
+# 1. Verificar la estructura de los datos
+str(data_total)
+
+# 2. Preparación detallada de datos
+# Convertir variables a tipo correcto
+data_total$PPERTENENCIA <- as.factor(data_total$PPERTENENCIA)
+data_total$CAUFIN <- as.factor(data_total$CAUFIN)
+data_total$DIASESTANCIA <- as.numeric(data_total$DIASESTANCIA)
+data_total$EDAD <- as.numeric(data_total$EDAD)
+
+# 3. Eliminar NA's
+data_total <- na.omit(data_total)
+
+# Verificar distribución de la variable objetivo
+print(table(data_total$PPERTENENCIA))
+
+# 4. Construcción del árbol con parámetros flexibles
+set.seed(123)  # Para reproducibilidad
+enf_pert <- rpart(PPERTENENCIA ~ 
+                    DIASESTANCIA + 
+                    CAUFIN + 
+                    EDAD,
+                  data = data_total, 
+                  method = "class",
+                  control = rpart.control(
+                    cp = 0.001,        # Reducir complejidad
+                    maxdepth = 10,     # Aumentar profundidad
+                    minsplit = 5,      # Reducir mínimo de observaciones
+                    minbucket = 3      # Mínimo de observaciones en nodo terminal
+                  ))
+
+# 5. Diagnóstico del modelo
+print(enf_pert)
+printcp(enf_pert)  # Tabla de complejidad
+
+# 6. Visualización del árbol
+if (!is.null(enf_pert)) {
+  rpart.plot(enf_pert, 
+             type = 2, 
+             under = TRUE, 
+             fallen.leaves = TRUE, 
+             box.palette = "BuGn", 
+             main = "Árbol de Decisión: Pertenencia", 
+             cex = 0.45)
+}
+
+# 7. Predicción de ejemplo
+pertenencia <- data.frame(
+  DIASESTANCIA = 3,
+  CAUFIN = factor("A06", levels = levels(data_total$CAUFIN)),
+  EDAD = 25
+)
+
+# 8. Realizar predicción
+result_pert <- predict(enf_pert, pertenencia, type = "class")
+print(result_pert)
+
+```
+
+
+
+```{r}
+
+# Asegúrate de cargar primero tus librerías necesarias
+library(rpart)
+library(rpart.plot)
+
+# Limpieza y preparación de datos
+# Eliminar valores NA
+a_2018 <- na.omit(a_2018)
+
+# Convertir variables a los tipos de datos correctos
+a_2018$CAUFIN <- as.factor(a_2018$CAUFIN)
+
+
+enf_pert <- rpart(PPERTENENCIA ~
+                 DIASESTANCIA +
+                 #CAUFIN + 
+                 EDAD,
+               data = a_2018, method = "class",control = rpart.control(cp = 0.01))
+
+
+rpart.plot(enf_pert, type=2, under = TRUE, fallen.leaves = TRUE, box.palette = "BuGn", 
+           main ="Pertenencia según enfermedades", cex = 0.45)
+
+pertenencia <- data.frame(
+  DIASESTANCIA = c(3),
+ #CAUFIN = factor("A06",levels = levels(a_2018$CAUFIN)),
+  EDAD = c(25))
+
+result_pert <- predict(enf_pert,pertenencia, type="class")
+result_pert
+```
+
+#Arbol No. 2
+
+```{r}
+motivo_enfermedad <- rpart(CAUFIN ~
+                SEXO+
+                DEPTORESIDEN+
+                DIASESTANCIA,
+               data = data_total, method = "class")
+
+
+rpart.plot(motivo_enfermedad, type=2, extra=0, under = TRUE, fallen.leaves = TRUE, box.palette = "BuGn", 
+           main ="Motivo de enfermedad según lugar de residencia", cex = 0.50)
+
+motivo <- data.frame(
+  SEXO = c(1),
+  DEPTORESIDEN = c(2),
+  DIASESTANCIA = c(3))
+
+result_motivo <- predict(motivo_enfermedad,motivo, type="class")
+result_motivo
+
+```
+
+#Arbol No. 3
+Enfermedades que padecen segun el genero  
+```{r}
+sexo_padece <- rpart(SEXO ~
+                EDAD+
+                DEPTORESIDEN,
+                #CAUFIN,
+               data = data_total, method = "class")
+
+
+rpart.plot(sexo_padece, type=2, extra=0, under = TRUE, fallen.leaves = TRUE, box.palette = "BuGn", 
+           main ="Padecimiento segun el sexo y la edad del paciente", cex = 0.50)
+
+padece <- data.frame(
+  EDAD = c(24),
+  DEPTORESIDEN = c(1))
+  #CAUFIN = C("A007"))
+
+result_padece <- predict(sexo_padece,padece, type="class")
+result_padece
+```
+
+#Arbol No. 4
+
+```{r}
+egreso_sexo <- rpart(CONDIEGRES ~
+                SEXO+
+                CAUFIN+
+                TRATARECIB+
+                DIASESTANCIA,
+               data = data_total, method = "class")
+
+
+rpart.plot(egreso_sexo, type=2, extra=0, under = TRUE, fallen.leaves = TRUE, box.palette = "BuGn", 
+           main ="Condicion de egreso segun sexo y tratamiento recibido", cex = 0.50)
+
+eg_s <- data.frame(
+  SEXO = c(2),
+  CAUFIN = c("L291"),
+  TRATARECIB = C(2),
+  DIASESTANCIA = c(3))
+
+result_egs <- predict(egreso_sexo,eg_s, type="class")
+result_egs
+```
+
