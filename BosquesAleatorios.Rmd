@@ -1,0 +1,211 @@
+---
+title: "Bosques aleatorios"
+output: html_notebook
+---
+
+```{r}
+#install.packages("randomForest")
+library(haven)
+library(rpart)
+library(rpart.plot)
+library(dplyr)
+library(tidyverse)
+library(randomForest)
+library (dplyr)
+```
+
+```{r}
+#Importando los archivos .sav
+
+a_2018 <- read_sav("2018.sav")
+a_2019 <- read_sav("2019.sav")
+a_2020 <- read_sav("2020.sav")
+a_2021 <- read_sav("2021.sav")
+a_2022 <- read_sav("2022.sav")
+
+# Unir los data frames usando rbind
+data_total <- rbind(a_2018, a_2019, a_2020, a_2021, a_2022)
+data_total$CAUFIN_numeric <- as.numeric(factor(data_total$CAUFIN))
+data_t <- na.omit(data_total)
+data_total$CAUFIN <- as.factor(data_total$CAUFIN)
+
+
+
+# Ver el resultado
+print(data_total)
+
+
+```
+
+```{r}
+data_total <- data_t[, c("CAUFIN_numeric", "EDAD", "PPERTENENCIA", "TRATARECIB" )]
+
+#Realizando semillas
+
+set.seed(100)
+data_total <- data_total[sample(1:nrow(data_total)),]
+index <- sample(1:nrow(data_total), 0.80*nrow(data_total))
+```
+
+Datos de entrenamiento
+```{r}
+train <- data_total[index,]
+test <- data_total[-index,]
+```
+
+```{r}
+bosque <- randomForest(CAUFIN_numeric ~ EDAD +PPERTENENCIA,
+                       data = train,
+                       ntree = 100,
+                       mtry = 2
+                       )
+
+entreno <- predict(bosque, test)
+entreno
+
+#Revision de aciertos
+matriz_1 <- table(test$CAUFIN_numeric, pruebas)
+matriz_1
+
+#Precision
+pre_1 <- sum(diag(matriz_1))/ sum(matriz_1)
+pre_1
+```
+
+Prediciendo datos
+
+```{r}
+i_dato <- data.frame(
+    EDAD = 70,
+    PPERTENENCIA = 2,
+    MES = 40
+)
+```
+Predicción
+
+```{r}
+prediccion <- predict(bosque, i_dato)
+prediccion
+
+```
+```{r}
+i_dato2 <- data.frame(
+    EDAD = 25,
+    PPERTENENCIA = 1,
+    MES = 6
+)
+prediccion <- predict(bosque, i_dato2)
+prediccion
+
+```
+ No. 2
+
+```{r}
+data_total2 <- data_t[, c("SEXO", "CAUFIN_numeric", "EDAD", "PPERTENENCIA")]
+
+#Realizando semillas
+
+set.seed(100)
+data_total_2 <- data_t[sample(1:nrow(data_total2)),]
+index <- sample(1:nrow(data_total2), 0.80*nrow(data_total2))
+
+train_2 <- data_total2[index,]
+test_2 <- data_total2[-index,]
+
+bosque_2 <- randomForest(EDAD ~ CAUFIN_numeric +SEXO +PPERTENENCIA,
+                       data = train_2,
+                       ntree = 100,
+                       mtry = 1
+                       )
+
+entreno <- predict(bosque_2, test_2)
+entreno
+
+i_dato_b2 <- data.frame(
+    CAUFIN_numeric = 1845,
+    SEXO = 1,
+    PPERTENENCIA = 3
+    
+    
+)
+prediccion <- predict(bosque_2, i_dato_b2)
+prediccion
+
+
+```
+
+```{r}
+data_total2 <- data_t[, c("SEXO", "CAUFIN_numeric", "EDAD", "PPERTENENCIA")]
+
+#Realizando semillas
+
+set.seed(100)
+data_total_2 <- data_t[sample(1:nrow(data_total2)),]
+index <- sample(1:nrow(data_total2), 0.80*nrow(data_total2))
+
+train_2 <- data_total2[index,]
+test_2 <- data_total2[-index,]
+
+bosque_2 <- randomForest(EDAD ~ CAUFIN_numeric +SEXO +PPERTENENCIA,
+                       data = train_2,
+                       ntree = 100,
+                       mtry = 1
+                       )
+
+pruebas <- predict(bosque_2, test_2)
+pruebas
+
+#Revision de aciertos
+matriz <- table(test_2$EDAD, pruebas)
+matriz
+
+#Precision
+pre <- sum(diag(matriz))/ sum(matriz)
+pre
+
+i_dato_b2 <- data.frame(
+    CAUFIN_numeric = 1845,
+    SEXO = 1,
+    PPERTENENCIA = 3
+    
+    
+)
+prediccion <- predict(bosque_2, i_dato_b2)
+prediccion
+```
+```{r}
+data_total <- data_t[, c("CAUFIN_numeric", "EDAD", "PPERTENENCIA", "TRATARECIB" )]
+
+#Realizando semillas
+
+set.seed(100)
+data_total <- data_total[sample(1:nrow(data_total)),]
+index <- sample(1:nrow(data_total), 0.80*nrow(data_total))
+```
+
+Datos de entrenamiento
+```{r}
+train <- data_total[index,]
+test <- data_total[-index,]
+```
+
+```{r}
+bosque <- randomForest(CAUFIN_numeric ~ EDAD +PPERTENENCIA,
+                       data = train,
+                       ntree = 100,
+                       mtry = 2
+                       )
+
+prueba <- predict(bosque, test)
+prueba
+#Revision de aciertos
+matriz_1 <- table(test$CAUFIN_numeric, prueba)
+matriz_1
+
+#Precision
+pre_1 <- sum(diag(matriz_1))/ sum(matriz_1)
+pre_1
+
+plot(bosque)
+```
+
