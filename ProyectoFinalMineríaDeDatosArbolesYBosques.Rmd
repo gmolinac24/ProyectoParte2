@@ -1,0 +1,361 @@
+---
+title: "SITUACIÓN DE LOS SERVICIOS HOSPITALARIOS EN LA CONSULTA INTERNA EN LA CIUDAD DE GUATEMALA"
+output: html_notebook
+---
+### Carga de archivo tipo SPSS (sav)
+
+Un archivo .sav es un archivo binario que almacena conjuntos de datos junto con un diccionario que describe la estructura de esos datos. Esto incluye información sobre las variables, sus tipos, y etiquetas de valores, lo que permite una interpretación adecuada de los datos
+
+Proceso para agregar a R-Studio el archivo descargado de https://www.ine.gob.gt/estadisticas-hospitalarias/ del Instituto Nacional de Estadística, fecha: 2022.
+
+### Instrucciones:
+Para cargar un archivo tipo .sav (SPSS) en R-Studio, debe seguir estos pasos:
+
+**Paso 1:** Instalar el paquete necesario
+Instalar el paquete "haven", que permite importar archivos SPSS para realizarlo abra R-Studio.
+**Paso 2:** Importar el archivo SPSS, asegúrese de colocar el archivo en la misma carpeta en donde guarda el cuaderno de trabajo.
+
+```{r}
+library(haven)
+a_2018 <- read_sav("2018.sav")
+a_2019 <- read_sav("2019.sav")
+a_2020 <- read_sav("2020.sav")
+a_2021 <- read_sav("2021.sav")
+a_2022 <- read_sav("2022.sav")
+```
+**Paso 3:** Verificar que la importación de los datos se haya realizado de forma correcta, utilizar la función head() para observar las primeras filas del conjunto de datos.
+
+```{r}
+print(a_2018)
+head(a_2019)
+head(a_2020)
+head(a_2021)
+head(a_2022)
+```
+
+Unir los datos de los 5 años propuestos, para ello se utiliza la instrucción rbind. La función rbind() en R es utilizada para combinar datos por filas. Su nombre proviene de "row-bind", y permite unir vectores, matrices y marcos de datos (data frames) en una sola estructura, añadiendo las filas de los objetos que se le pasan como argumentos.
+
+```{r}
+# Unir los data frames usando rbind
+data_total <- rbind(a_2018, a_2019, a_2020, a_2021, a_2022)
+
+# Ver el resultado
+print(data_total)
+
+```
+```{r}
+View(data_total)
+```
+**Librerías necesarias**
+La librería rpart (Recursive Partitioning and Regression Trees) es una herramienta utilizada en R para crear árboles de decisión, que son modelos de clasificación y regresión.
+
+La función rpart.plot en R Studio se utiliza para visualizar modelos de árboles de decisión creados con la librería rpart. Esta función proporciona una interfaz simplificada para el método prp, permitiendo generar gráficos que son automáticamente adaptados al tipo de respuesta del modelo, ya sea clasificación o regresión.
+
+A continuación se ejecutan las librerías necesarias para inicar los árboles de decisión.
+
+
+```{r}
+#Librerías necesarias
+#install.packages("rpart")
+#install.packages("rpart.plot")
+
+library(rpart)
+library(rpart.plot)
+library(dplyr)
+library(tidyverse)
+library(mltools)
+library(data.table)
+library(ggplot2)
+```
+La factorización es el proceso de convertir una variable categórica en un factor. Los factores son útiles en R porque permiten almacenar datos categóricos y realizar análisis estadísticos apropiados.
+
+Categorizando y factorización de variables: 
+
+```{r}
+#Convirtiendo en factor el departamento, agrupa por categorías
+data_total$CAUFIN <- as.factor(data_total$CAUFIN)
+```
+
+Realizando los áboles de decisión para la data de medicina interna.
+Árbol No. 1, Prediciendo el pueblo de pertenencia según características de los días de hospitalización, edad y causa de enfermedad.
+
+```{r}
+#Cambiando la columna CAUFIN a tipo numérico debido a que los árboles de decisión únicamente acepta valores numéricos
+data_total$CAUFIN_numeric <- as.numeric(factor(data_total$CAUFIN))
+
+#Construcción del árbol, selección de variables y variable objetivo
+enf_pert <- rpart(PPERTENENCIA ~
+                DIASESTANCIA+
+                 CAUFIN_numeric+
+                 EDAD,
+               data = data_total, method = "class",control = rpart.control(minsplit = 20, cp = 0.01, maxdepth = 5))
+
+#Entrenamiento y ploteo del árbol
+rpart.plot(enf_pert, type=2, extra=0, under = TRUE, fallen.leaves = TRUE, box.palette = "BuGn", 
+           main ="Pertenencia según enfermedades", cex = 0.45)
+
+#Prediciendo
+pertenencia <- data.frame(
+  DIASESTANCIA=c(3),
+  CAUFIN_numeric = c(43),
+  EDAD=c(40))
+
+result_pert <- predict(enf_pert,pertenencia, type="class")
+result_pert
+
+
+```
+
+#Árbol No. 1
+Prediciendo motivo de enfermedad según carácterísticas de días de hospitalización, sexo, departamento de residencia,
+
+```{r}
+#Cambiando la columna CAUFIN a tipo numérico debido a que los árboles de decisión únicamente acepta valores numéricos
+data_total$CAUFIN_numeric <- as.numeric(factor(data_total$CAUFIN))
+
+#Construcción del árbol, selección de variables y variable objetivo
+data_total <- na.omit(data_total)
+data_total$CAUFIN <- as.factor(data_total$CAUFIN)
+
+motivo_enfermedad <- rpart(CAUFIN ~
+                SEXO+
+                DEPTORESIDEN+
+                DIASESTANCIA,
+               data = data_total, method = "class",control = rpart.control(minsplit = 10, cp = 0.01, maxdepth = 15))
+
+#Entrenamiento y ploteo del árbol
+rpart.plot(motivo_enfermedad, type=2, extra=0, under = TRUE, fallen.leaves = TRUE, box.palette = "BuGn", 
+           main ="Motivo de enfermedad según lugar de residencia", cex = 0.50)
+
+#Prediciendo
+motivo <- data.frame(
+  SEXO = c(2),
+  DEPTORESIDEN = c(9),
+  DIASESTANCIA = c(3))
+
+result_motivo <- predict(motivo_enfermedad,motivo, type="class")
+result_motivo
+
+```
+
+#Arbol No. 2
+Enfermedades que padecen segun el genero  
+
+```{r}
+a_2019 <- na.omit(a_2019)
+a_2019$CAUFIN <- as.factor(a_2019$CAUFIN)
+levels(a_2019$CAUFIN) <- droplevels(a_2019$CAUFIN)
+
+sexo_padece <- rpart(SEXO ~
+                EDAD+
+                DEPTORESIDEN+
+                CAUFIN,
+               data = a_2019, method = "class")
+
+
+rpart.plot(sexo_padece, type=2, extra=0, under = TRUE, fallen.leaves = TRUE, box.palette = "BuGn", 
+           main ="Padecimiento segun el sexo y la edad del paciente", cex = 0.50)
+
+padece <- data.frame(
+  EDAD = c(24),
+  DEPTORESIDEN = c(1))
+ CAUFIN = factor("A06",levels = levels(a_2019$CAUFIN))
+
+result_padece <- predict(sexo_padece,padece, type="class")
+result_padece
+```
+
+#Árbol No. 3
+```{r}
+egreso_sexo <- rpart(CONDIEGRES ~
+                SEXO+
+                CAUFIN+
+                TRATARECIB+
+                DIASESTANCIA,
+               data = data_total, method = "class")
+
+
+rpart.plot(egreso_sexo, type=2, extra=0, under = TRUE, box.palette = "BuGn", 
+           main ="Condicion de egreso segun sexo y tratamiento recibido", cex = 0.50)
+
+eg_s <- data.frame(
+  SEXO = c(1),
+  CAUFIN = factor("A06", levels = levels(data_total$CAUFIN)),
+  TRATARECIB = c(2),
+  DIASESTANCIA = c(4))
+
+result_egs <- predict(egreso_sexo,eg_s, type="class")
+result_egs
+```
+
+#Árbol No. 4
+
+```{r}
+data_total$CAUFIN_numeric <- as.numeric(factor(data_total$CAUFIN))
+mes_enf <- rpart(SEXO ~
+                EDAD+
+                DIASESTANCIA+
+                CAUFIN_numeric,
+               data = data_total, method = "class")
+
+
+rpart.plot(mes_enf, type=2, extra=0, under = TRUE, box.palette = "BuGn", 
+           main ="Género de constancia de enfermedad", cex = 0.50)
+
+mes_g <- data.frame( 
+  EDAD = c(40),
+  DIASESTANCIA = c(3),
+  CAUFIN_numeric = c(2800))
+ 
+  
+pred <- predict(mes_enf,mes_g, type="class")
+pred
+```
+
+### Bosques Aleatorios
+
+Los bosques aleatorios (o random forests en inglés) son una técnica de aprendizaje automático muy utilizada para tareas de clasificación y regresión.
+
+Los bosques aleatorios son un conjunto de múltiples árboles de decisión que se combinan para mejorar la precisión y la robustez del modelo. Cada árbol en el bosque es entrenado utilizando una muestra aleatoria de los datos de entrenamiento, lo que introduce variabilidad y reduce el riesgo de sobreajuste. El resultado final se obtiene mediante la votación mayoritaria (en clasificación) o el promedio (en regresión) de las predicciones de todos los árboles.
+
+*Construcción de bosques Aleatorios*
+
+Se basa en el concepto de bagging (Bootstrap Aggregating), que consiste en combinar múltiples modelos para mejorar la estabilidad y precisión de las predicciones.
+
+¿Cómo Funcionan?
+
+*Muestreo:* Se generan múltiples muestras del conjunto de datos original mediante un método llamado "bootstrap", donde se seleccionan observaciones al azar con reemplazo.
+
+*Construcción de Árboles:* Para cada muestra, se construye un árbol de decisión. En cada nodo del árbol, se selecciona un subconjunto aleatorio de características para determinar la mejor división, lo que ayuda a reducir la correlación entre los árboles.
+
+*Predicción:* Para clasificar una nueva observación, cada árbol emite una predicción y la clase final se determina mediante la votación mayoritaria. En problemas de regresión, se calcula el promedio de las predicciones.
+
+*Librerías*
+
+randomForest: Esta es la biblioteca más comúnmente utilizada para implementar el algoritmo de bosques aleatorios en R.
+
+Se utiliza para construir el modelo de bosque aleatorio. Permite especificar la fórmula del modelo, el conjunto de datos, el número de árboles a construir (ntree), y otros parámetros que controlan el comportamiento del modelo.
+
+rpart: Aunque no se utiliza directamente para bosques aleatorios, es útil para construir árboles individuales que pueden ser parte del bosque.
+
+```{r}
+#Librerías para la ejecución de bosques Aleatorios
+
+#install.packages("randomForest")
+library(haven)
+library(rpart)
+library(rpart.plot)
+library(dplyr)
+library(tidyverse)
+library(randomForest)
+library (dplyr)
+
+
+```
+
+```{r}
+data_total$CAUFIN_numeric <- as.numeric(factor(data_total$CAUFIN))
+data_t <- na.omit(data_total)
+data_total$CAUFIN <- as.factor(data_total$CAUFIN)
+```
+
+### Creación de Bosques Aleatorios
+
+##Bosque No. 1
+```{r}
+data_total <- data_t[, c("CAUFIN_numeric", "EDAD", "PPERTENENCIA", "TRATARECIB" )]
+
+#Realizando semillas: cantidad de datos aleatorios tomados para la ejecución del árbol
+
+set.seed(100)
+data_total <- data_total[sample(1:nrow(data_total)),] #tomando la sentencia 80/20, 80% de entrenamiento, 20% predicción
+index <- sample(1:nrow(data_total), 0.80*nrow(data_total))
+```
+
+Datos de entrenamiento
+```{r}
+train <- data_total[index,]
+test <- data_total[-index,]
+```
+Creación del bosque
+```{r}
+#Cambiando la columna CAUFIN a tipo numérico debido a que los bosques aleatorios únicamente acepta valores numéricos
+data_total$CAUFIN_numeric <- as.numeric(factor(data_total$CAUFIN))
+bosque <- randomForest(CAUFIN_numeric ~ EDAD +PPERTENENCIA,
+                       data = train,
+                       ntree = 100,
+                       mtry = 2
+                       )
+
+entreno <- predict(bosque, test)
+entreno
+
+#Revision de aciertos
+matriz_1 <- table(test$CAUFIN_numeric, pruebas)
+matriz_1
+
+#Precision
+pre_1 <- sum(diag(matriz_1))/ sum(matriz_1)
+pre_1
+```
+
+Prediciendo datos
+
+```{r}
+i_dato <- data.frame(
+    EDAD = 70,
+    PPERTENENCIA = 2,
+)
+```
+Predicción
+
+```{r}
+prediccion <- predict(bosque, i_dato)
+prediccion
+
+```
+```{r}
+i_dato2 <- data.frame(
+    EDAD = 25,
+    PPERTENENCIA = 1,
+)
+prediccion <- predict(bosque, i_dato2)
+prediccion
+
+```
+
+##Bosque No. 2
+
+```{r}
+data_total2 <- data_t[, c("SEXO", "CAUFIN_numeric", "EDAD", "PPERTENENCIA")]
+
+#Realizando semillas
+
+set.seed(100)
+data_total_2 <- data_t[sample(1:nrow(data_total2)),]
+index <- sample(1:nrow(data_total2), 0.80*nrow(data_total2))
+
+train_2 <- data_total2[index,]
+test_2 <- data_total2[-index,]
+
+bosque_2 <- randomForest(EDAD ~ CAUFIN_numeric +SEXO +PPERTENENCIA,
+                       data = train_2,
+                       ntree = 100,
+                       mtry = 1
+                       )
+
+entreno <- predict(bosque_2, test_2)
+entreno
+
+i_dato_b2 <- data.frame(
+    CAUFIN_numeric = 1845,
+    SEXO = 1,
+    PPERTENENCIA = 3
+    
+    
+)
+prediccion <- predict(bosque_2, i_dato_b2)
+prediccion
+
+
+```
